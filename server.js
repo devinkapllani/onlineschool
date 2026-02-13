@@ -220,7 +220,7 @@ CREATE TABLE IF NOT EXISTS submissions (
 );
 `);
 
-db.prepare(sql).run(params);
+
 
 
 
