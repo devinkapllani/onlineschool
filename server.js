@@ -32,9 +32,115 @@ app.use(cors({ origin: APP_URL, credentials: true }));
 app.use(express.json({ limit: "8mb" }));
 app.use(cookieParser());
 
-// -------------------- DB --------------------
-const db = new Database("data.db");
-db.pragma("journal_mode = WAL");
+// -------------------- DB (sqlite) --------------------
+const db = await open({
+  filename: "./data.db",
+  driver: sqlite3.Database
+});
+
+// WAL mode (similar to pragma in better-sqlite3)
+await db.exec("PRAGMA journal_mode = WAL");
+await db.exec("PRAGMA foreign_keys = ON");
+
+// tables
+await db.exec(`
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  pass_hash TEXT NOT NULL,
+  role TEXT NOT NULL CHECK(role IN ('student','teacher','admin')) DEFAULT 'student',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS books (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  level TEXT NOT NULL,
+  year INTEGER,
+  isbn TEXT,
+  summary TEXT,
+  topics_json TEXT DEFAULT '[]',
+  cover_path TEXT,
+  created_by INTEGER,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS quizzes (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  book_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  created_by INTEGER,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS quiz_questions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  quiz_id INTEGER NOT NULL,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  points INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  created_by INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+  group_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  PRIMARY KEY (group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS assignments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id INTEGER NOT NULL,
+  quiz_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  due_date TEXT,
+  created_by INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS submissions (
+  assignment_id INTEGER NOT NULL,
+  student_id INTEGER NOT NULL,
+  answers_json TEXT NOT NULL,
+  auto_score INTEGER NOT NULL DEFAULT 0,
+  auto_max INTEGER NOT NULL DEFAULT 0,
+  teacher_score INTEGER,
+  teacher_feedback TEXT,
+  submitted_at TEXT DEFAULT (datetime('now')),
+  PRIMARY KEY (assignment_id, student_id)
+);
+`);
+
+// helpers (NOW async)
+async function one(sql, params = []) { return db.get(sql, params); }
+async function all(sql, params = []) { return db.all(sql, params); }
+async function run(sql, params = []) { return db.run(sql, params); }
+
+function safeJsonParse(s, fallback) {
+  try { return JSON.parse(s); } catch { return fallback; }
+}
+
+async function ensureColumn(table, col, type) {
+  const cols = (await all(`PRAGMA table_info(${table})`)).map(r => r.name);
+  if (!cols.includes(col)) {
+    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
+  }
+}
+
+// --- migrations (safe) ---
+await ensureColumn("submissions", "teacher_max", "INTEGER");
+await ensureColumn("submissions", "ai_feedback", "TEXT");
+await ensureColumn("submissions", "graded_at", "TEXT");
+
 
 // tables
 db.exec(`
