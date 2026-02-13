@@ -1,5 +1,11 @@
-import Database from "better-sqlite3";
-import path from "path";
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+
+export const db = await open({
+  filename: './data.db',
+  driver: sqlite3.Database
+});
+
 
 const DB_FILE = path.join(process.cwd(), "data.db");
 let db;
