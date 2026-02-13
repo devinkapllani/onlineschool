@@ -9,7 +9,9 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import crypto from "crypto";
-import Database from "better-sqlite3";
+import sqlite3 from "sqlite3";
+import { open } from "sqlite";
+
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
