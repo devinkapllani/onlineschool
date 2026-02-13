@@ -220,15 +220,8 @@ CREATE TABLE IF NOT EXISTS submissions (
 );
 `);
 
-function one(sql, params = []) {
-  return db.prepare(sql).get(params);
-}
-function all(sql, params = []) {
-  return db.prepare(sql).all(params);
-}
-function run(sql, params = []) {
-  return db.prepare(sql).run(params);
-}
+db.prepare(sql).run(params);
+
 function safeJsonParse(s, fallback) {
   try { return JSON.parse(s); } catch { return fallback; }
 }
