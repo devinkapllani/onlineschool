@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Student • School Library</title>
+  <link rel="stylesheet" href="/styles.css" />
+
+  <style>
+    /* Student-only spacing + layout improvements (no need to touch styles.css) */
+    .student-wrap{
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      gap: 16px;
+    }
+    .student-grid{
+      display:grid;
+      grid-template-columns: 1.2fr .8fr;
+      gap:16px;
+      align-items:start;
+    }
+    .stack{display:flex; flex-direction:column; gap:12px;}
+    .book-card{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+      cursor:pointer;
+    }
+    .book-cover{
+      width:74px; height:98px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.1);
+      object-fit:cover;
+      flex:0 0 auto;
+      background: rgba(255,255,255,.04);
+    }
+    .book-meta{display:flex; flex-direction:column; gap:6px;}
+    .book-title{font-weight:800; line-height:1.2;}
+    .rowline{display:flex; gap:8px; flex-wrap:wrap;}
+    .tag{
+      font-size:12px; opacity:.85;
+      padding:6px 10px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+    }
+
+    /* modal */
+    .modal{
+      position:fixed; inset:0;
+      display:none;
+      align-items:center; justify-content:center;
+      padding:16px;
+      background: rgba(0,0,0,.6);
+      z-index: 50;
+    }
+    .modalCard{
+      width:min(920px, 96vw);
+      max-height: 90vh;
+      overflow:auto;
+      background: rgba(16,24,51,.95);
+      border:1px solid rgba(255,255,255,.12);
+      border-radius: 18px;
+      padding: 14px;
+    }
+    .modalHead{
+      display:flex; justify-content:space-between; align-items:center;
+      gap:10px;
+      padding: 6px 6px 14px;
+      border-bottom:1px solid rgba(255,255,255,.12);
+    }
+    .modalHead h3{margin:0}
+    .modalBody{padding: 14px 6px;}
+    .qbox{display:flex; flex-direction:column; gap:10px; margin-top:10px;}
+    .qitem{
+      padding:12px;
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      background: rgba(255,255,255,.03);
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .qitem input{margin:0;}
+    .twoCol{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+    }
+
+    @media (max-width: 980px){
+      .student-grid{grid-template-columns: 1fr;}
+      .twoCol{grid-template-columns: 1fr;}
+    }
+  </style>
+</head>
+
+<body>
+<header class="header">
+  <div class="brand">
+    <div class="logo">📘</div>
+    <div>
+      <h1>Student</h1>
+      <p class="subtitle" id="meLine">Loading…</p>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a class="btn ghost" id="dashBtn" href="/dashboard.html" style="display:none;">← Dashboard</a>
+    <button class="btn" id="logoutBtn" type="button">Logout</button>
+  </div>
+</header>
+
+<main class="student-wrap">
+  <div class="student-grid">
+
+    <!-- LEFT: BOOKS -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Books</h2>
+        <button class="btn ghost" id="refreshBooks" type="button">Refresh</button>
+      </div>
+
+      <div style="padding: 0 14px 14px;">
+        <input class="input" id="bookSearch" placeholder="Search books by title/author/subject…" />
+      </div>
+
+      <div class="detail">
+        <div id="booksList" class="stack">
+          <div class="hint">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT: ASSIGNMENTS -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>My Assignments</h2>
+        <button class="btn ghost" id="refreshAsg" type="button">Refresh</button>
+      </div>
+
+      <div class="detail">
+        <div id="asgList" class="stack">
+          <div class="hint">Loading…</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- AI Tutor -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>AI Tutor</h2>
+    </div>
+    <div class="detail">
+      <div class="twoCol">
+        <div>
+          <div class="hint" style="margin-bottom:8px;">Optional: click a book to auto-fill Book ID</div>
+          <input class="input" id="aiBookId" placeholder="Book ID (optional)" />
+        </div>
+        <div></div>
+      </div>
+
+      <textarea class="input" id="aiQuestion" rows="3" placeholder="Ask a question about your selected book…"></textarea>
+      <button class="btn primary" id="askAiBtn" type="button">Ask</button>
+
+      <div class="card" id="aiOut" style="margin-top:12px; white-space:pre-wrap;">—</div>
+    </div>
+  </section>
+</main>
+
+<!-- BOOK MODAL -->
+<div class="modal" id="bookModal">
+  <div class="modalCard">
+    <div class="modalHead">
+      <h3 id="bookModalTitle">Book</h3>
+      <button class="btn ghost" id="closeBookModal" type="button">✕</button>
+    </div>
+    <div class="modalBody" id="bookModalBody"></div>
+  </div>
+</div>
+
+<!-- ASSIGNMENT MODAL (answer inside student page) -->
+<div class="modal" id="asgModal">
+  <div class="modalCard">
+    <div class="modalHead">
+      <h3 id="asgModalTitle">Assignment</h3>
+      <button class="btn ghost" id="closeAsgModal" type="button">✕</button>
+    </div>
+    <div class="modalBody" id="asgModalBody"></div>
+  </div>
+</div>
+
+<script type="module">
+  import { api, escapeHtml } from "./app.js";
+  const $ = (id) => document.getElementById(id);
+
+  let ME = null;
+  let BOOKS = [];
+
+  function pill(text){ return `<span class="tag">${escapeHtml(text)}</span>`; }
+
+  async function init() {
+    const me = await api("/api/auth/me");
+    ME = me.user;
+    $("meLine").textContent = `${ME.name} • ${ME.email} • role: ${ME.role}`;
+
+    if (ME.role === "teacher" || ME.role === "admin") {
+      $("dashBtn").style.display = "inline-flex";
+    }
+
+    await loadBooks();
+    await loadAssignments();
+  }
+
+  $("logoutBtn").onclick = async () => {
+    try { await api("/api/auth/logout", { method:"POST" }); } catch {}
+    location.href="/login.html";
+  };
+
+  // -------- BOOKS ----------
+  function bookCard(b){
+    const div = document.createElement("div");
+    div.className = "card book-card";
+
+    const img = document.createElement("img");
+    img.className = "book-cover";
+    img.alt = "Cover";
+    img.src = b.cover_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='160'%3E%3Crect width='100%25' height='100%25' fill='%230b1222'/%3E%3Ctext x='50%25' y='50%25' fill='%23e8eefc' font-size='14' text-anchor='middle' dominant-baseline='middle'%3ENo Cover%3C/text%3E%3C/svg%3E";
+
+    const meta = document.createElement("div");
+    meta.className = "book-meta";
+    meta.innerHTML = `
+      <div class="book-title">${escapeHtml(b.title)} <span class="hint">(id: ${b.id})</span></div>
+      <div class="hint">${escapeHtml(b.author)} • ${escapeHtml(b.subject)} • ${escapeHtml(b.level)}</div>
+      <div class="rowline">
+        ${b.year ? pill("Year: " + b.year) : ""}
+        ${b.isbn ? pill("ISBN: " + b.isbn) : ""}
+      </div>
+    `;
+
+    div.appendChild(img);
+    div.appendChild(meta);
+
+    div.onclick = () => openBook(b);
+    return div;
+  }
+
+  function renderBooks(list){
+    const box = $("booksList");
+    box.innerHTML = "";
+    if (!list.length) {
+      box.innerHTML = `<div class="hint">No books yet.</div>`;
+      return;
+    }
+    for (const b of list) box.appendChild(bookCard(b));
+  }
+
+  async function loadBooks(){
+    const data = await api("/api/books");
+    BOOKS = data.books || [];
+    renderBooks(BOOKS);
+  }
+
+  $("refreshBooks").onclick = loadBooks;
+
+  $("bookSearch").addEventListener("input", () => {
+    const q = $("bookSearch").value.trim().toLowerCase();
+    if (!q) return renderBooks(BOOKS);
+    const filtered = BOOKS.filter(b =>
+      `${b.title} ${b.author} ${b.subject} ${b.level} ${b.isbn||""}`.toLowerCase().includes(q)
+    );
+    renderBooks(filtered);
+  });
+
+  // Book modal: show topics + quizzes for that book
+  async function openBook(book){
+    $("aiBookId").value = book.id;
+
+    $("bookModalTitle").textContent = book.title;
+    $("bookModalBody").innerHTML = `<div class="hint">Loading details…</div>`;
+    $("bookModal").style.display = "flex";
+
+    const qz = await api(`/api/books/${book.id}/quizzes`);
+    const quizzes = qz.quizzes || [];
+
+    const topics = (book.topics || []);
+    const topicsHtml = topics.length
+      ? `<div class="rowline">${topics.map(t => pill(t)).join("")}</div>`
+      : `<div class="hint">No topics</div>`;
+
+    const quizzesHtml = quizzes.length
+      ? quizzes.map(q => `
+          <div class="qitem">
+            <div><b>${escapeHtml(q.title)}</b> <span class="hint">(${q.questions.length} questions)</span></div>
+            <details>
+              <summary class="hint">Preview questions</summary>
+              <div class="qbox">
+                ${q.questions.map((qq,i)=>`
+                  <div class="qitem">
+                    <div class="hint">Q${i+1}</div>
+                    <div><b>${escapeHtml(qq.question)}</b></div>
+                    <div class="hint">Answer: ${escapeHtml(qq.answer)}</div>
+                  </div>
+                `).join("")}
+              </div>
+            </details>
+          </div>
+        `).join("")
+      : `<div class="hint">No quizzes for this book yet.</div>`;
+
+    $("bookModalBody").innerHTML = `
+      <div class="twoCol">
+        <div>
+          ${book.cover_url ? `<img class="book-cover" style="width:140px;height:180px;" src="${book.cover_url}" />` : ``}
+        </div>
+        <div>
+          <div class="rowline">
+            ${pill(book.subject)} ${pill(book.level)} ${book.year ? pill("Year: " + book.year) : ""}
+          </div>
+          <div style="margin-top:10px;">
+            <div class="hint">Summary</div>
+            <div style="margin-top:6px;">${escapeHtml(book.summary || "—")}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div class="hint">Topics</div>
+        <div style="margin-top:8px;">${topicsHtml}</div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div class="hint">Quizzes for this book</div>
+        <div class="qbox" style="margin-top:10px;">${quizzesHtml}</div>
+      </div>
+    `;
+  }
+
+  $("closeBookModal").onclick = () => $("bookModal").style.display = "none";
+  $("bookModal").addEventListener("click", (e) => {
+    if (e.target.id === "bookModal") $("bookModal").style.display = "none";
+  });
+
+  // -------- ASSIGNMENTS ----------
+  function statusLine(a){
+    const sub = a.submission;
+    if (!sub) return `<span class="hint">⏳ Not submitted</span>`;
+
+    const auto = `Auto: ${sub.auto_score}/${sub.auto_max}`;
+    const teacher = (sub.teacher_score !== null && sub.teacher_score !== undefined)
+      ? ` • Teacher: ${sub.teacher_score}/${sub.teacher_max ?? "?"}`
+      : "";
+    return `<span class="hint">✅ Submitted • ${escapeHtml(auto + teacher)}</span>`;
+  }
+
+  function assignmentCard(a){
+    const div = document.createElement("div");
+    div.className = "card";
+    const due = a.due_date ? `Due: ${a.due_date}` : "No due date";
+
+    const sub = a.submission;
+    const teacherBlock = (sub && (sub.teacher_score !== null && sub.teacher_score !== undefined || sub.teacher_feedback))
+      ? `<div class="qitem" style="margin-top:10px;">
+           <div><b>Teacher grade</b></div>
+           <div class="hint">${escapeHtml(sub.teacher_score ?? "—")}/${escapeHtml(sub.teacher_max ?? "—")}</div>
+           <div style="margin-top:6px;">${escapeHtml(sub.teacher_feedback || "—")}</div>
+         </div>`
+      : "";
+
+    const aiBlock = (sub && sub.ai_feedback)
+      ? `<div class="qitem" style="margin-top:10px;">
+           <div><b>AI feedback</b></div>
+           <div style="white-space:pre-wrap;">${escapeHtml(sub.ai_feedback)}</div>
+         </div>`
+      : "";
+
+    div.innerHTML = `
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
+        <div>
+          <div><b>${escapeHtml(a.title)}</b> <span class="hint">(id: ${a.id})</span></div>
+          <div class="hint">${escapeHtml(a.group_name)} • ${escapeHtml(a.quiz_title)}</div>
+          <div class="hint">${escapeHtml(due)}</div>
+          <div style="margin-top:6px;">${statusLine(a)}</div>
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn ghost" data-open="${a.id}">${sub ? "Resubmit" : "Open"}</button>
+        </div>
+      </div>
+      ${teacherBlock}
+      ${aiBlock}
+    `;
+    return div;
+  }
+
+  async function loadAssignments(){
+    const box = $("asgList");
+    box.innerHTML = `<div class="hint">Loading…</div>`;
+    const data = await api("/api/my/assignments");
+    const items = data.assignments || [];
+
+    box.innerHTML = "";
+    if (!items.length) {
+      box.innerHTML = `<div class="hint">No assignments yet. (Teacher must add you to a classroom/group)</div>`;
+      return;
+    }
+
+    for (const a of items) box.appendChild(assignmentCard(a));
+
+    box.querySelectorAll("[data-open]").forEach(btn => {
+      btn.onclick = () => openAssignment(Number(btn.getAttribute("data-open")));
+    });
+  }
+
+  $("refreshAsg").onclick = loadAssignments;
+
+  // Assignment modal: answer inside student page
+  async function openAssignment(id){
+    $("asgModalTitle").textContent = "Assignment";
+    $("asgModalBody").innerHTML = `<div class="hint">Loading quiz…</div>`;
+    $("asgModal").style.display = "flex";
+
+    const data = await api(`/api/assignments/${id}/quiz`);
+    const questions = data.questions || [];
+    $("asgModalTitle").textContent = `${data.assignment?.title || "Assignment"} • ${data.quiz?.title || ""}`;
+
+    $("asgModalBody").innerHTML = `
+      <div class="hint">Answer below and submit (auto-scored). Teacher grade may appear later.</div>
+      <form id="asgForm" class="qbox" style="margin-top:12px;">
+        ${questions.map((q,i)=>`
+          <div class="qitem">
+            <div class="hint">Q${i+1} • ${q.points} pts</div>
+            <div><b>${escapeHtml(q.question)}</b></div>
+            <input class="input" name="q_${q.id}" placeholder="Your answer…" />
+          </div>
+        `).join("")}
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn primary" type="submit">Submit</button>
+          <button class="btn ghost" type="button" id="cancelAsg">Cancel</button>
+        </div>
+        <div class="card" id="asgResult" style="display:none; white-space:pre-wrap;"></div>
+      </form>
+    `;
+
+    $("cancelAsg").onclick = () => $("asgModal").style.display = "none";
+
+    $("asgForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const form = e.target;
+
+      const answers = questions.map(q => ({
+        question_id: q.id,
+        answer: form[`q_${q.id}`].value
+      }));
+
+      const r = await api(`/api/assignments/${id}/submit`, {
+        method:"POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ answers })
+      });
+
+      const out = $("asgResult");
+      out.style.display = "block";
+      out.textContent =
+        `Submitted ✅\nAuto score: ${r.auto_score}/${r.auto_max}\n\n` +
+        (r.ai_feedback ? `AI feedback:\n${r.ai_feedback}` : "AI feedback: (not available)");
+
+      await loadAssignments();
+    };
+  }
+
+  $("closeAsgModal").onclick = () => $("asgModal").style.display = "none";
+  $("asgModal").addEventListener("click", (e) => {
+    if (e.target.id === "asgModal") $("asgModal").style.display = "none";
+  });
+
+  // -------- AI Tutor ----------
+  $("askAiBtn").onclick = async () => {
+    const msg = $("aiQuestion").value.trim();
+    if (!msg) return;
+    $("aiOut").textContent = "Thinking…";
+
+    // This project has AI tutor route in teacher.html version sometimes.
+    // If you only have /api/ai/tutor on your server, use that.
+    // If you don't want AI now, it still works without crashing.
+
+    try {
+      // Prefer /api/ai/tutor if it exists:
+      const bookId = $("aiBookId").value.trim();
+      const r = await api("/api/ai/tutor", {
+        method:"POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ message: msg, bookId: bookId ? Number(bookId) : null })
+      });
+      $("aiOut").textContent = r.answer || "—";
+    } catch (e) {
+      $("aiOut").textContent = "AI Tutor is not enabled on this server (missing route or OpenAI key).";
+    }
+  };
+
+  // start
+  await init();
+</script>
+</body>
+</html>

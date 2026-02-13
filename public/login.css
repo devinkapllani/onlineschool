@@ -1,0 +1,102 @@
+/* ONLY login page - does not affect other pages */
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    background: #0b0f17;
+    color: #e8eefc;
+  }
+  
+  .login-wrap {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+  }
+  
+  .login-card {
+    width: min(560px, 100%);
+    background: #121a2a;
+    border: 1px solid #22304f;
+    border-radius: 18px;
+    padding: 26px;
+    box-shadow: 0 24px 70px rgba(0,0,0,.40);
+  }
+  
+  .login-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  
+  .login-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: #0b1222;
+    border: 1px solid #22304f;
+    font-size: 20px;
+  }
+  
+  h1 {
+    margin: 0;
+    font-size: 24px;
+  }
+  
+  .sub {
+    margin: 4px 0 0;
+    opacity: .85;
+    font-size: 13px;
+  }
+  
+  label {
+    display: block;
+    margin: 12px 0 6px;
+    font-size: 13px;
+    opacity: .9;
+  }
+  
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    background: #0b1222;
+    color: #e8eefc;
+    border: 1px solid #22304f;
+    border-radius: 10px;
+    padding: 12px;
+    outline: none;
+  }
+  
+  input:focus {
+    border-color: #2a6cff;
+  }
+  
+  .actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  
+  .btn {
+    flex: 1;
+    background: #2a6cff;
+    color: white;
+    border: 0;
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+  
+  .btn.ghost {
+    background: transparent;
+    border: 1px solid #2a6cff;
+  }
+  
+  .error { margin-top: 12px; color: #ffb3b3; }
+  .ok { margin-top: 12px; color: #b8ffcc; }
+  
+  a { color: #9cc2ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  

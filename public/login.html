@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Login • School Library</title>
+
+  <!-- ONLY login uses this -->
+  <link rel="stylesheet" href="/login.css" />
+</head>
+<body>
+  <div class="login-wrap">
+    <div class="login-card">
+
+      <div class="login-title">
+        <div class="login-logo">📚</div>
+        <div>
+          <h1>School Library</h1>
+          <div class="sub">Login to continue</div>
+        </div>
+      </div>
+
+      <!-- LOGIN -->
+      <div id="loginBox">
+        <h2 style="margin: 10px 0;">Login</h2>
+
+        <label>Email</label>
+        <input id="loginEmail" placeholder="admin@school.local" />
+
+        <label>Password</label>
+        <input id="loginPass" type="password" placeholder="Password" />
+
+        <div class="actions">
+          <button class="btn" id="loginBtn">Login</button>
+          <button class="btn ghost" id="showRegister" type="button">Register</button>
+        </div>
+
+        <div id="loginMsg" class="error"></div>
+      </div>
+
+      <!-- REGISTER (hidden) -->
+      <div id="registerBox" style="display:none;">
+        <h2 style="margin: 10px 0;">Create account</h2>
+
+        <label>Name</label>
+        <input id="regName" placeholder="Your name" />
+
+        <label>Email</label>
+        <input id="regEmail" placeholder="you@email.com" />
+
+        <label>Password (min 8)</label>
+        <input id="regPass" type="password" placeholder="********" />
+
+        <div class="actions">
+          <button class="btn" id="regBtn">Create</button>
+          <button class="btn ghost" id="showLogin" type="button">Back</button>
+        </div>
+
+        <div id="regMsg" class="error"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module">
+    import { api } from "./app.js";
+    const $ = (id) => document.getElementById(id);
+    const setMsg = (el, msg, ok=false) => { el.className = ok ? "ok" : "error"; el.textContent = msg || ""; };
+
+    function routeByRole(user) {
+      if (user.role === "admin") location.href = "/admin.html";
+      else if (user.role === "teacher") location.href = "/teacher.html";
+      else location.href = "/student.html";
+    }
+
+    $("showRegister").addEventListener("click", () => {
+      $("loginBox").style.display = "none";
+      $("registerBox").style.display = "block";
+      setMsg($("loginMsg"), "");
+    });
+
+    $("showLogin").addEventListener("click", () => {
+      $("registerBox").style.display = "none";
+      $("loginBox").style.display = "block";
+      setMsg($("regMsg"), "");
+    });
+
+    $("loginBtn").addEventListener("click", async () => {
+      try {
+        setMsg($("loginMsg"), "");
+        const email = $("loginEmail").value.trim();
+        const password = $("loginPass").value;
+
+        const data = await api("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+
+        routeByRole(data.user);
+      } catch (e) {
+        setMsg($("loginMsg"), e.message);
+      }
+    });
+
+    $("regBtn").addEventListener("click", async () => {
+      try {
+        setMsg($("regMsg"), "");
+        const name = $("regName").value.trim();
+        const email = $("regEmail").value.trim();
+        const password = $("regPass").value;
+
+        const data = await api("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email, password })
+        });
+
+        routeByRole(data.user);
+      } catch (e) {
+        setMsg($("regMsg"), e.message);
+      }
+    });
+  </script>
+</body>
+</html>

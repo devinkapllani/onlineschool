@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin • School Library</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div>
+        <h1>Admin</h1>
+        <small id="me"></small>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <a class="btn secondary" href="/teacher.html">Teacher view</a>
+        <a class="btn secondary" href="/student.html">Student view</a>
+        <button class="btn secondary" id="logout">Logout</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Users</h2>
+      <button class="btn secondary" id="refresh">Refresh</button>
+      <div id="msg" class="error"></div>
+      <div id="list" class="list"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api, $, setMsg, escapeHtml } from "./app.js";
+
+    $("logout").addEventListener("click", async () => {
+      try { await api("/api/auth/logout", { method:"POST" }); } catch {}
+      location.href="/login.html";
+    });
+
+    async function load() {
+      try {
+        setMsg($("msg"), "");
+        const me = await api("/api/auth/me");
+        $("me").textContent = `${me.user.name} • ${me.user.email} • role: ${me.user.role}`;
+        const data = await api("/api/admin/users");
+        $("list").innerHTML = "";
+
+        for (const u of data.users) {
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <b>${escapeHtml(u.name)}</b> <small>(${escapeHtml(u.email)})</small><br/>
+            <small>role: <b>${escapeHtml(u.role)}</b> • created: ${escapeHtml(u.created_at)}</small>
+            <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn secondary" data-role="student" data-id="${u.id}">Student</button>
+              <button class="btn secondary" data-role="teacher" data-id="${u.id}">Teacher</button>
+              <button class="btn secondary" data-role="admin" data-id="${u.id}">Admin</button>
+            </div>
+          `;
+          $("list").appendChild(div);
+        }
+
+        $("list").querySelectorAll("button[data-role]").forEach(btn => {
+          btn.addEventListener("click", async () => {
+            try {
+              const id = btn.getAttribute("data-id");
+              const role = btn.getAttribute("data-role");
+              await api(`/api/admin/users/${id}/role`, {
+  method:"PUT",
+  headers: { "Content-Type":"application/json" },
+  body: JSON.stringify({ role })
+});
+
+              await load();
+            } catch (e) { setMsg($("msg"), e.message); }
+          });
+        });
+      } catch (e) { setMsg($("msg"), e.message); }
+    }
+
+    $("refresh").addEventListener("click", load);
+    await load();
+  </script>
+</body>
+</html>

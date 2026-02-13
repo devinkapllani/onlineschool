@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard • School Library</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">
+      <div class="logo">🧭</div>
+      <div>
+        <h1>Dashboard</h1>
+        <p class="subtitle" id="meLine">Loading...</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <a class="btn ghost" href="/student.html">Student View</a>
+      <a class="btn ghost" href="/teacher.html">Teacher Tools</a>
+      <a class="btn ghost" id="adminLink" href="/admin.html" style="display:none;">Admin</a>
+      <button id="logoutBtn" class="btn">Logout</button>
+    </div>
+  </header>
+
+  <main class="layout" style="grid-template-columns: 1fr 1fr;">
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Quick Actions</h2>
+      </div>
+
+      <div class="list">
+        <div class="card">✅ Add Books in <b>Teacher Tools</b></div>
+        <div class="card">✅ Create Quizzes (manual or AI)</div>
+        <div class="card">✅ Create Groups + Add Students</div>
+        <div class="card">✅ Create Assignments</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Status</h2>
+      </div>
+
+      <div class="card">
+        This dashboard is just navigation + overview.
+        Use <b>Teacher Tools</b> to manage books/quizzes/groups/assignments.
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { api } from "./app.js";
+    const $ = (id) => document.getElementById(id);
+
+    async function init() {
+      const data = await api("/api/auth/me");
+      $("meLine").textContent = `${data.user.name} • ${data.user.email} • role: ${data.user.role}`;
+
+      if (data.user.role === "admin") {
+        $("adminLink").style.display = "inline-flex";
+      }
+    }
+
+    $("logoutBtn").addEventListener("click", async () => {
+      try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+      location.href = "/login.html";
+    });
+
+    init();
+  </script>
+</body>
+</html>

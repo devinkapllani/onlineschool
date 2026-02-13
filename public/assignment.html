@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Assignment • School Library</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div>
+        <h1 id="title">Assignment</h1>
+        <small id="sub"></small>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <a class="btn secondary" href="/student.html">Back</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="msg" class="error"></div>
+      <div id="qList" class="list"></div>
+      <button class="btn" id="submit">Submit</button>
+      <div id="ok" class="ok"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api, $, setMsg, escapeHtml } from "./app.js";
+
+    const id = Number(new URLSearchParams(location.search).get("id"));
+
+    async function load() {
+      try {
+        setMsg($("msg"), "");
+        const data = await api(`/api/assignments/${id}/quiz`);
+        $("title").textContent = data.quiz.title;
+
+        $("qList").innerHTML = "";
+        for (const q of data.questions) {
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <b>${escapeHtml(q.question)}</b> <small>(${q.points} pts)</small>
+            <label>Your answer</label>
+            <input data-qid="${q.id}" />
+          `;
+          $("qList").appendChild(div);
+        }
+      } catch (e) {
+        setMsg($("msg"), e.message);
+      }
+    }
+
+    $("submit").addEventListener("click", async ()=> {
+      try{
+        setMsg($("ok"), "");
+        const answers = [...document.querySelectorAll("input[data-qid]")].map(inp => ({
+          question_id: Number(inp.getAttribute("data-qid")),
+          answer: inp.value
+        }));
+        const r = await api(`/api/assignments/${id}/submit`, {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ answers })
+        });
+        $("ok").textContent = `Submitted ✅ Auto score: ${r.auto_score}/${r.auto_max}`;
+      } catch(e){
+        setMsg($("msg"), e.message);
+      }
+    });
+
+    await load();
+  </script>
+</body>
+</html>

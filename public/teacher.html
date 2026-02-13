@@ -1,0 +1,547 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Teacher • School Library</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div>
+        <h1>Teacher Dashboard</h1>
+        <small id="me"></small>
+        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn secondary" id="toStudent">Student View</button>
+          <button class="btn secondary" id="toAdmin" style="display:none;">Admin View</button>
+        </div>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button class="btn secondary" id="logout">Logout</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <!-- LEFT: BOOKS + CLASSROOMS -->
+      <div class="card">
+        <h2>Books (add / edit / delete)</h2>
+        <div id="bookMsg" class="error"></div>
+
+        <label>Book ID (for edit/delete)</label>
+        <input id="bookId" placeholder="leave empty to create" />
+
+        <label>Title *</label><input id="title" />
+        <label>Author *</label><input id="author" />
+        <label>Subject *</label><input id="subject" />
+
+        <label>Level *</label>
+        <select id="level">
+          <option value="">Choose…</option>
+          <option>IGCSE</option>
+          <option>AS</option>
+          <option>A Level</option>
+          <option>Other</option>
+        </select>
+
+        <div class="row" style="grid-template-columns:1fr 1fr;">
+          <div><label>Year</label><input id="year" type="number" /></div>
+          <div><label>ISBN</label><input id="isbn" /></div>
+        </div>
+
+        <label>Topics (comma separated)</label><input id="topics" />
+        <label>Summary</label><textarea id="summary"></textarea>
+        <label>Cover (optional)</label><input id="cover" type="file" accept="image/*" />
+
+        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn" id="createBook">Create</button>
+          <button class="btn secondary" id="updateBook">Update</button>
+          <button class="btn secondary" id="deleteBook">Delete</button>
+          <button class="btn secondary" id="refreshBooks">Refresh list</button>
+        </div>
+
+        <div id="bookList" class="list"></div>
+        <p><small>Tip: click a book in the list to auto-fill the form.</small></p>
+
+        <hr/>
+
+        <h2>Create Classroom (Groups)</h2>
+        <div id="groupMsg" class="error"></div>
+
+        <label>New classroom name</label>
+        <input id="newGroupName" placeholder="Class 10A" />
+        <button class="btn secondary" id="createGroupBtn">Create classroom</button>
+
+        <div style="margin-top:12px;">
+          <label>Select classroom</label>
+          <select id="groupSelect" class="input"></select>
+        </div>
+
+        <label>Add student by email (student must register first)</label>
+        <input id="studentEmail" placeholder="student@email.com" />
+        <button class="btn secondary" id="addStudentBtn">Add student</button>
+
+        <div class="card" style="margin-top:12px;">
+          <b>Members</b>
+          <div id="membersBox" class="hint" style="margin-top:8px; white-space:pre-wrap;"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT: AI + QUIZZES + ASSIGNMENTS + GRADING -->
+      <div class="card">
+        <h2>AI Tutor + Quizzes + Assignments</h2>
+        <div id="msg" class="error"></div>
+
+        <h3>AI Tutor</h3>
+        <label>Book ID (optional)</label>
+        <input id="tutorBookId" placeholder="e.g. 1" />
+        <label>Message</label>
+        <input id="tutorMsg" placeholder="Explain photosynthesis simply" />
+        <button class="btn secondary" id="askTutor">Ask</button>
+        <div id="tutorOut" class="card" style="margin-top:10px;"></div>
+
+        <hr/>
+
+        <h3>Create Quiz (Manual)</h3>
+        <label>Book ID</label><input id="quizBookId" />
+        <label>Quiz title</label><input id="quizTitle" />
+        <label>Questions JSON (array)</label>
+        <textarea id="quizQuestions" placeholder='[{"question":"...","answer":"...","points":1}]'></textarea>
+        <button class="btn secondary" id="createQuiz">Create quiz</button>
+
+        <hr/>
+
+        <h3>AI Quiz Generator</h3>
+        <label>Book ID</label><input id="aiBookId" />
+        <label>How many questions?</label><input id="aiN" type="number" value="8" />
+        <button class="btn secondary" id="genQuiz">Generate</button>
+        <textarea id="aiOut" placeholder="Generated JSON will appear here"></textarea>
+        <button class="btn secondary" id="saveAiQuiz">Save generated quiz to book</button>
+
+        <hr/>
+
+        <h3>Create Assignment</h3>
+        <label>Group ID (Classroom)</label><input id="asgGroup" />
+        <label>Quiz ID</label><input id="asgQuiz" />
+        <label>Title</label><input id="asgTitle" />
+        <label>Due date (optional)</label><input id="asgDue" placeholder="YYYY-MM-DD" />
+        <button class="btn secondary" id="createAsg">Create assignment</button>
+
+        <hr/>
+
+        <h3>Assignments list</h3>
+        <button class="btn secondary" id="refreshAsg">Refresh assignments</button>
+        <div id="asgList" class="list"></div>
+
+        <hr/>
+        <h2>Grading Center (AI or Teacher)</h2>
+        <div id="gradeMsg" class="error"></div>
+
+        <label>Assignment ID</label>
+        <input id="gradeAssignmentId" placeholder="e.g. 1" />
+
+        <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn secondary" id="loadSubs">Load submissions</button>
+        </div>
+
+        <div id="subsList" class="list" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { api, $, setMsg, escapeHtml } from "./app.js";
+
+    async function setupSwitching() {
+      try {
+        const me = await api("/api/auth/me");
+        $("me").textContent = `${me.user.name} • ${me.user.email} • role: ${me.user.role}`;
+        $("toStudent").addEventListener("click", () => location.href = "/student.html");
+
+        if (me.user.role === "admin") {
+          $("toAdmin").style.display = "inline-block";
+          $("toAdmin").addEventListener("click", () => location.href = "/admin.html");
+        }
+      } catch {
+        $("me").textContent = "Not logged in";
+      }
+    }
+
+    $("logout").addEventListener("click", async () => {
+      try { await api("/api/auth/logout", { method:"POST" }); } catch {}
+      location.href = "/login.html";
+    });
+
+    function bookCard(b) {
+      const div = document.createElement("div");
+      div.className = "card book";
+      const img = document.createElement("img");
+      img.className="cover";
+      img.src = b.cover_url || "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='160'%3E%3Crect width='100%25' height='100%25' fill='%230b1222'/%3E%3Ctext x='50%25' y='50%25' fill='%23e8eefc' font-size='14' text-anchor='middle' dominant-baseline='middle'%3ENo Cover%3C/text%3E%3C/svg%3E";
+      const info = document.createElement("div");
+      info.innerHTML = `
+        <div><b>${escapeHtml(b.title)}</b> <small>(id: ${b.id})</small></div>
+        <div><small>${escapeHtml(b.author)} • ${escapeHtml(b.subject)} • ${escapeHtml(b.level)}</small></div>
+        <div><small>Topics: ${(b.topics||[]).map(escapeHtml).join(", ")}</small></div>
+      `;
+      div.appendChild(img);
+      div.appendChild(info);
+
+      div.addEventListener("click", () => {
+        $("bookId").value = b.id;
+        $("title").value = b.title || "";
+        $("author").value = b.author || "";
+        $("subject").value = b.subject || "";
+        $("level").value = b.level || "";
+        $("year").value = b.year || "";
+        $("isbn").value = b.isbn || "";
+        $("topics").value = (b.topics||[]).join(", ");
+        $("summary").value = b.summary || "";
+      });
+
+      return div;
+    }
+
+    async function loadBooks() {
+      const data = await api("/api/books");
+      $("bookList").innerHTML = "";
+      for (const b of data.books) $("bookList").appendChild(bookCard(b));
+    }
+
+    $("refreshBooks").addEventListener("click", async () => {
+      try { setMsg($("bookMsg"), ""); await loadBooks(); }
+      catch(e){ setMsg($("bookMsg"), e.message); }
+    });
+
+    $("createBook").addEventListener("click", async () => {
+      try {
+        setMsg($("bookMsg"), "");
+        const fd = new FormData();
+        fd.append("title", $("title").value.trim());
+        fd.append("author", $("author").value.trim());
+        fd.append("subject", $("subject").value.trim());
+        fd.append("level", $("level").value.trim());
+        fd.append("year", $("year").value.trim());
+        fd.append("isbn", $("isbn").value.trim());
+        fd.append("topics", $("topics").value.trim());
+        fd.append("summary", $("summary").value.trim());
+        const file = $("cover").files?.[0];
+        if (file) fd.append("cover", file);
+
+        await api("/api/books", { method:"POST", body: fd });
+        setMsg($("bookMsg"), "Book created ✅", true);
+        await loadBooks();
+      } catch (e) { setMsg($("bookMsg"), e.message); }
+    });
+
+    $("updateBook").addEventListener("click", async () => {
+      try {
+        setMsg($("bookMsg"), "");
+        const id = $("bookId").value.trim();
+        if (!id) throw new Error("Book ID required for update");
+
+        const fd = new FormData();
+        fd.append("title", $("title").value.trim());
+        fd.append("author", $("author").value.trim());
+        fd.append("subject", $("subject").value.trim());
+        fd.append("level", $("level").value.trim());
+        fd.append("year", $("year").value.trim());
+        fd.append("isbn", $("isbn").value.trim());
+        fd.append("topics", $("topics").value.trim());
+        fd.append("summary", $("summary").value.trim());
+        const file = $("cover").files?.[0];
+        if (file) fd.append("cover", file);
+
+        await api(`/api/books/${id}`, { method:"PUT", body: fd });
+        setMsg($("bookMsg"), "Book updated ✅", true);
+        await loadBooks();
+      } catch (e) { setMsg($("bookMsg"), e.message); }
+    });
+
+    $("deleteBook").addEventListener("click", async () => {
+      try {
+        setMsg($("bookMsg"), "");
+        const id = $("bookId").value.trim();
+        if (!id) throw new Error("Book ID required for delete");
+
+        await api(`/api/books/${id}`, { method:"DELETE" });
+        setMsg($("bookMsg"), "Book deleted ✅", true);
+        await loadBooks();
+      } catch (e) { setMsg($("bookMsg"), e.message); }
+    });
+
+    // ===== CLASSROOMS =====
+    async function loadGroups() {
+      const data = await api("/api/groups");
+      const sel = $("groupSelect");
+      sel.innerHTML = "";
+      for (const g of data.groups) {
+        const opt = document.createElement("option");
+        opt.value = g.id;
+        opt.textContent = `${g.name} (id: ${g.id})`;
+        sel.appendChild(opt);
+      }
+      if (data.groups[0]) {
+        $("asgGroup").value = data.groups[0].id;
+        await loadMembers();
+      }
+    }
+
+    async function loadMembers() {
+      const gid = Number($("groupSelect").value);
+      if (!gid) { $("membersBox").textContent = "No classroom selected."; return; }
+      const data = await api(`/api/groups/${gid}/members`);
+      if (!data.members.length) { $("membersBox").textContent = "No students yet."; return; }
+      $("membersBox").textContent = data.members.map(m => `• ${m.name} (${m.email})`).join("\n");
+    }
+
+    $("createGroupBtn").addEventListener("click", async () => {
+      try {
+        setMsg($("groupMsg"), "");
+        const name = $("newGroupName").value.trim();
+        if (!name) throw new Error("Enter classroom name");
+        await api("/api/groups", {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ name })
+        });
+        setMsg($("groupMsg"), "Classroom created ✅", true);
+        $("newGroupName").value = "";
+        await loadGroups();
+      } catch(e) { setMsg($("groupMsg"), e.message); }
+    });
+
+    $("groupSelect").addEventListener("change", async () => {
+      await loadMembers();
+      $("asgGroup").value = $("groupSelect").value;
+    });
+
+    $("addStudentBtn").addEventListener("click", async () => {
+      try {
+        setMsg($("groupMsg"), "");
+        const gid = Number($("groupSelect").value);
+        const email = $("studentEmail").value.trim();
+        if (!gid) throw new Error("Pick a classroom");
+        if (!email) throw new Error("Enter student email");
+        await api(`/api/groups/${gid}/members`, {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ email })
+        });
+        setMsg($("groupMsg"), "Student added ✅", true);
+        $("studentEmail").value = "";
+        await loadMembers();
+      } catch(e) { setMsg($("groupMsg"), e.message); }
+    });
+
+    // Tutor
+    $("askTutor").addEventListener("click", async () => {
+      try {
+        setMsg($("msg"), "");
+        $("tutorOut").textContent = "";
+        const message = $("tutorMsg").value.trim();
+        const bookId = $("tutorBookId").value.trim();
+
+        const data = await api("/api/ai/tutor", {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ message, bookId: bookId ? Number(bookId) : null })
+        });
+        $("tutorOut").textContent = data.answer;
+      } catch(e){ setMsg($("msg"), e.message); }
+    });
+
+    // Manual quiz
+    $("createQuiz").addEventListener("click", async () => {
+      try {
+        setMsg($("msg"), "");
+        const bookId = Number($("quizBookId").value.trim());
+        const title = $("quizTitle").value.trim();
+        const questions = JSON.parse($("quizQuestions").value.trim());
+
+        await api(`/api/books/${bookId}/quizzes`, {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ title, questions })
+        });
+
+        setMsg($("msg"), "Quiz created ✅", true);
+      } catch(e){ setMsg($("msg"), e.message); }
+    });
+
+    // AI quiz generate + save
+    $("genQuiz").addEventListener("click", async () => {
+      try {
+        setMsg($("msg"), "");
+        const bookId = Number($("aiBookId").value.trim());
+        const n = Number($("aiN").value.trim());
+
+        const data = await api("/api/ai/quiz", {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ bookId, n })
+        });
+
+        $("aiOut").value = JSON.stringify(data.questions, null, 2);
+        setMsg($("msg"), "Generated ✅ Review then save.", true);
+      } catch(e){ setMsg($("msg"), e.message); }
+    });
+
+    $("saveAiQuiz").addEventListener("click", async () => {
+      try {
+        setMsg($("msg"), "");
+        const bookId = Number($("aiBookId").value.trim());
+        const title = `AI Quiz (${new Date().toISOString().slice(0,10)})`;
+        const questions = JSON.parse($("aiOut").value || "[]");
+
+        await api(`/api/books/${bookId}/quizzes`, {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ title, questions })
+        });
+
+        setMsg($("msg"), "AI quiz saved ✅", true);
+      } catch(e){ setMsg($("msg"), e.message); }
+    });
+
+    // Assignments list
+    async function loadAssignments() {
+      try {
+        const data = await api("/api/teacher/assignments");
+        $("asgList").innerHTML = "";
+        for (const a of data.assignments) {
+          const div = document.createElement("div");
+          div.className = "card";
+          div.innerHTML = `
+            <b>${escapeHtml(a.title)}</b> <small>(id: ${a.id})</small><br/>
+            <small>${escapeHtml(a.group_name)} • ${escapeHtml(a.quiz_title)} • due: ${escapeHtml(a.due_date || "—")}</small>
+          `;
+          div.addEventListener("click", () => {
+            $("gradeAssignmentId").value = a.id;
+          });
+          $("asgList").appendChild(div);
+        }
+      } catch {}
+    }
+
+    $("createAsg").addEventListener("click", async ()=> {
+      try{
+        setMsg($("msg"), "");
+        await api("/api/assignments", {
+          method:"POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            group_id: Number($("asgGroup").value.trim()),
+            quiz_id: Number($("asgQuiz").value.trim()),
+            title: $("asgTitle").value.trim(),
+            due_date: $("asgDue").value.trim() || null
+          })
+        });
+        setMsg($("msg"), "Assignment created ✅", true);
+        await loadAssignments();
+      } catch(e){ setMsg($("msg"), e.message); }
+    });
+
+    $("refreshAsg").addEventListener("click", async ()=> {
+      try { setMsg($("msg"), ""); await loadAssignments(); }
+      catch(e){ setMsg($("msg"), e.message); }
+    });
+
+    // ===== GRADING CENTER =====
+    async function loadSubmissions() {
+      const aid = Number($("gradeAssignmentId").value.trim());
+      if (!aid) throw new Error("Assignment ID required");
+
+      const data = await api(`/api/teacher/assignments/${aid}/submissions`);
+      const subs = data.submissions || [];
+
+      $("subsList").innerHTML = "";
+      if (!subs.length) {
+        $("subsList").innerHTML = `<div class="card">No submissions yet.</div>`;
+        return;
+      }
+
+      for (const s of subs) {
+        const div = document.createElement("div");
+        div.className = "card";
+
+        const aiLine = (s.ai_score != null)
+          ? `AI: ${s.ai_score}/${s.ai_max || ""} • ${s.ai_feedback || ""}`
+          : "AI: not graded yet";
+
+        div.innerHTML = `
+          <b>${escapeHtml(s.student_name)}</b> <small>(${escapeHtml(s.student_email)})</small><br/>
+          <small>Submitted: ${escapeHtml(s.submitted_at || "")}</small><br/>
+          <small>Auto: ${s.auto_score ?? 0}/${s.auto_max ?? 0}</small><br/>
+          <small>${escapeHtml(aiLine)}</small>
+
+          <div style="margin-top:10px;">
+            <label>Teacher score</label>
+            <input class="input" data-tscore value="${s.teacher_score ?? ""}" placeholder="e.g. 8" />
+            <label>Teacher feedback</label>
+            <textarea class="input" data-tfb rows="3" placeholder="Short feedback...">${escapeHtml(s.teacher_feedback ?? "")}</textarea>
+
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+              <button class="btn secondary" data-save>Save teacher grade</button>
+              <button class="btn secondary" data-ai>AI grade</button>
+            </div>
+          </div>
+        `;
+
+        div.querySelector("[data-save]").addEventListener("click", async () => {
+          try {
+            setMsg($("gradeMsg"), "");
+            const score = div.querySelector("[data-tscore]").value.trim();
+            const fb = div.querySelector("[data-tfb]").value.trim();
+
+            await api("/api/teacher/grade", {
+              method: "POST",
+              headers: { "Content-Type":"application/json" },
+              body: JSON.stringify({
+                assignment_id: aid,
+                student_id: s.student_id,
+                teacher_score: score === "" ? null : Number(score),
+                teacher_feedback: fb
+              })
+            });
+
+            setMsg($("gradeMsg"), "Teacher grade saved ✅", true);
+          } catch (e) {
+            setMsg($("gradeMsg"), e.message);
+          }
+        });
+
+        div.querySelector("[data-ai]").addEventListener("click", async () => {
+          try {
+            setMsg($("gradeMsg"), "AI grading…", true);
+
+            await api("/api/ai/grade", {
+              method: "POST",
+              headers: { "Content-Type":"application/json" },
+              body: JSON.stringify({ assignment_id: aid, student_id: s.student_id })
+            });
+
+            setMsg($("gradeMsg"), "AI graded ✅ Reloading…", true);
+            await loadSubmissions();
+          } catch (e) {
+            setMsg($("gradeMsg"), e.message);
+          }
+        });
+
+        $("subsList").appendChild(div);
+      }
+    }
+
+    $("loadSubs").addEventListener("click", async () => {
+      try { setMsg($("gradeMsg"), ""); await loadSubmissions(); }
+      catch (e) { setMsg($("gradeMsg"), e.message); }
+    });
+
+    // init
+    await setupSwitching();
+    await loadBooks();
+    await loadGroups();
+    await loadAssignments();
+  </script>
+</body>
+</html>
