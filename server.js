@@ -222,12 +222,7 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 db.prepare(sql).run(params);
 
-function ensureColumn(table, col, type) {
-  const cols = all(`PRAGMA table_info(${table})`).map(r => r.name);
-  if (!cols.includes(col)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${type}`);
-  }
-}
+
 
 // --- migrations (safe) ---
 ensureColumn("submissions", "teacher_max", "INTEGER");
