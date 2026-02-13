@@ -222,9 +222,6 @@ CREATE TABLE IF NOT EXISTS submissions (
 
 db.prepare(sql).run(params);
 
-function safeJsonParse(s, fallback) {
-  try { return JSON.parse(s); } catch { return fallback; }
-}
 function ensureColumn(table, col, type) {
   const cols = all(`PRAGMA table_info(${table})`).map(r => r.name);
   if (!cols.includes(col)) {
