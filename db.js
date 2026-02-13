@@ -1,15 +1,21 @@
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+// db.js
+import sqlite3 from "sqlite3";
+import { open } from "sqlite";
 
-const db = await open({
-  filename: "./data.db",
-  driver: sqlite3.Database
-});
-
-
-
-const DB_FILE = path.join(process.cwd(), "data.db");
 let db;
+
+export async function getDb() {
+  if (!db) {
+    db = await open({
+      filename: "./data.db",
+      driver: sqlite3.Database,
+    });
+    await db.exec("PRAGMA foreign_keys = ON");
+  }
+  return db;
+}
+
+
 
 export function initDb() {
   if (db) return db;
